@@ -1,10 +1,10 @@
 const express = require("express");
 const { Pool } = require("pg");
 const cors = require("cors");
-app.use(cors({ origin: "https://your-frontend-domain.github.io" }));
 
 const app = express();
-app.use(cors()); // Allow cross-origin requests from your frontend domain
+// Allow cross-origin requests from your frontend domain
+app.use(cors({ origin: "https://your-frontend-domain.github.io" }));
 
 const pool = new Pool({
   user: "YOUR_AIVEN_DB_USER",
