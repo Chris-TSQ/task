@@ -4,8 +4,12 @@
 
 const CONFIG = {
     // API base URL
-    API_BASE_URL: 'http://localhost:5000',
-    
+    // API_BASE_URL: 'http://localhost:5000',
+    // ✅ ADDED:
+    API_BASE_URL: window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000' 
+        : 'https://douban-movies-api.onrender.com'
+        
     // Plot filename mappings
     PLOT_MAPPINGS: {
         'avg-rating': 'avg_rating_by_genre',

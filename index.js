@@ -1,36 +1,137 @@
 const express = require("express");
 const { Pool } = require("pg");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
-// Allow cross-origin requests from frontend domain
-app.use(cors({ origin: "https://frontend-domain.github.io" }));
 
+// CORS configuration - adjust origin to match your frontend URL
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://your-frontend-domain.github.io"],
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+
+// PostgreSQL connection pool
 const pool = new Pool({
-  user: "YOUR_AIVEN_DB_USER",
-  host: "YOUR_AIVEN_HOST",
-  database: "YOUR_DB_NAME",
-  password: "YOUR_AIVEN_PASSWORD",
-  port: 5432,
-  ssl: { rejectUnauthorized: false }, // often needed with cloud DBs
+  user: process.env.DB_USER || "YOUR_AIVEN_DB_USER",
+  host: process.env.DB_HOST || "YOUR_AIVEN_HOST",
+  database: process.env.DB_NAME || "YOUR_DB_NAME",
+  password: process.env.DB_PASSWORD || "YOUR_AIVEN_PASSWORD",
+  port: process.env.DB_PORT || 5432,
+  ssl: { rejectUnauthorized: false },
 });
 
-app.get("/api/data", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM douban_movies_top");
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+// Test database connection
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error("Error connecting to database:", err.stack);
+  } else {
+    console.log("✓ Database connected successfully");
+    release();
   }
 });
 
-// in frontend code
-fetch("https://backend.onrender.com/api/data")
-  .then((r) => r.json())
-  .then((data) => {
-    /* draw charts */
-  });
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`API server is running on port ${PORT}`));
+// Get statistics endpoint
+app.get("/api/stats", async (req, res) => {
+  try {
+    // Total movies
+    const totalMoviesResult = await pool.query(
+      "SELECT COUNT(*) as count FROM douban_movies_top"
+    );
+
+    // Total unique genres (assuming genres are comma-separated)
+    const totalGenresResult = await pool.query(
+      "SELECT COUNT(DISTINCT genre) as count FROM douban_movies_top"
+    );
+
+    // Average rating
+    const avgRatingResult = await pool.query(
+      "SELECT AVG(rating) as avg_rating FROM douban_movies_top"
+    );
+
+    // Highest rated movie
+    const highestRatedResult = await pool.query(
+      "SELECT title FROM douban_movies_top ORDER BY rating DESC LIMIT 1"
+    );
+
+    const stats = {
+      total_movies: parseInt(totalMoviesResult.rows[0].count),
+      total_genres: parseInt(totalGenresResult.rows[0].count),
+      avg_rating: parseFloat(avgRatingResult.rows[0].avg_rating),
+      highest_rated: highestRatedResult.rows[0]?.title || "N/A",
+    };
+
+    res.json(stats);
+  } catch (err) {
+    console.error("Error fetching stats:", err);
+    res.status(500).json({ error: "Failed to fetch statistics" });
+  }
+});
+
+// Get all movies endpoint
+app.get("/api/movies", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM douban_movies_top ORDER BY rating DESC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching movies:", err);
+    res.status(500).json({ error: "Failed to fetch movies" });
+  }
+});
+
+// Get movies by genre
+app.get("/api/movies/genre/:genre", async (req, res) => {
+  try {
+    const { genre } = req.params;
+    const result = await pool.query(
+      "SELECT * FROM douban_movies_top WHERE genre ILIKE $1 ORDER BY rating DESC",
+      [`%${genre}%`]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching movies by genre:", err);
+    res.status(500).json({ error: "Failed to fetch movies by genre" });
+  }
+});
+
+// Serve static plot images
+app.use("/plots", express.static(path.join(__dirname, "plots")));
+
+// Optional: Serve frontend static files if deploying together
+// app.use(express.static(path.join(__dirname, "public")));
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Endpoint not found" });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Server error:", err.stack);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`📊 API endpoints:`);
+  console.log(`   GET  /api/health`);
+  console.log(`   GET  /api/stats`);
+  console.log(`   GET  /api/movies`);
+  console.log(`   GET  /api/movies/genre/:genre`);
+  console.log(`   GET  /plots/:filename.png\n`);
+  console.log(`Refreshing plot: ${plotKey}`);
+  console.log(`Auto-refresh enabled (every ${CONFIG.AUTO_REFRESH_INTERVAL / 1000}s)`);
+});
