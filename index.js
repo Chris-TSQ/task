@@ -3,8 +3,8 @@ const { Pool } = require("pg");
 const cors = require("cors");
 
 const app = express();
-// Allow cross-origin requests from your frontend domain
-app.use(cors({ origin: "https://your-frontend-domain.github.io" }));
+// Allow cross-origin requests from frontend domain
+app.use(cors({ origin: "https://frontend-domain.github.io" }));
 
 const pool = new Pool({
   user: "YOUR_AIVEN_DB_USER",
@@ -17,7 +17,7 @@ const pool = new Pool({
 
 app.get("/api/data", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM your_table");
+    const result = await pool.query("SELECT * FROM douban_movies_top");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -26,7 +26,7 @@ app.get("/api/data", async (req, res) => {
 });
 
 // in frontend code
-fetch("https://your-backend.onrender.com/api/data")
+fetch("https://backend.onrender.com/api/data")
   .then((r) => r.json())
   .then((data) => {
     /* draw charts */
