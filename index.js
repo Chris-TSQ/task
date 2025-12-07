@@ -5,10 +5,10 @@ const path = require("path");
 
 const app = express();
 
-// CORS configuration - adjust origin to match your frontend URL
+// CORS configuration
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://your-frontend-domain.github.io"],
+    origin: ["http://localhost:3000", "https://chris-tsq.github.io"],
     methods: ["GET", "POST"],
     credentials: true,
   })
@@ -18,10 +18,10 @@ app.use(express.json());
 
 // PostgreSQL connection pool
 const pool = new Pool({
-  user: process.env.DB_USER || "YOUR_AIVEN_DB_USER",
-  host: process.env.DB_HOST || "YOUR_AIVEN_HOST",
-  database: process.env.DB_NAME || "YOUR_DB_NAME",
-  password: process.env.DB_PASSWORD || "YOUR_AIVEN_PASSWORD",
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT || 5432,
   ssl: { rejectUnauthorized: false },
 });
@@ -44,22 +44,18 @@ app.get("/api/health", (req, res) => {
 // Get statistics endpoint
 app.get("/api/stats", async (req, res) => {
   try {
-    // Total movies
     const totalMoviesResult = await pool.query(
       "SELECT COUNT(*) as count FROM douban_movies_top"
     );
 
-    // Total unique genres (assuming genres are comma-separated)
     const totalGenresResult = await pool.query(
       "SELECT COUNT(DISTINCT genre) as count FROM douban_movies_top"
     );
 
-    // Average rating
     const avgRatingResult = await pool.query(
       "SELECT AVG(rating) as avg_rating FROM douban_movies_top"
     );
 
-    // Highest rated movie
     const highestRatedResult = await pool.query(
       "SELECT title FROM douban_movies_top ORDER BY rating DESC LIMIT 1"
     );
@@ -109,9 +105,6 @@ app.get("/api/movies/genre/:genre", async (req, res) => {
 // Serve static plot images
 app.use("/plots", express.static(path.join(__dirname, "plots")));
 
-// Optional: Serve frontend static files if deploying together
-// app.use(express.static(path.join(__dirname, "public")));
-
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Endpoint not found" });
@@ -123,7 +116,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);
   console.log(`📊 API endpoints:`);
@@ -132,6 +125,4 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/movies`);
   console.log(`   GET  /api/movies/genre/:genre`);
   console.log(`   GET  /plots/:filename.png\n`);
-  console.log(`Refreshing plot: ${plotKey}`);
-  console.log(`Auto-refresh enabled (every ${CONFIG.AUTO_REFRESH_INTERVAL / 1000}s)`);
 });
